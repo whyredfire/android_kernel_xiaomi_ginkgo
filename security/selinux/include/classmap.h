@@ -29,7 +29,7 @@
 		"wake_alarm", "block_suspend", "audit_read"
 
 #if CAP_LAST_CAP > CAP_AUDIT_READ
-#error New capability defined, please update COMMON_CAP2_PERMS.
+#warning New capability defined, please update COMMON_CAP2_PERMS.
 #endif
 
 /*
