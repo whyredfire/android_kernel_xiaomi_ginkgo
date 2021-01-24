@@ -1,7 +1,8 @@
 sudo apt install sshpass
+read -sp 'sf password: ' sfpass
 export PATH="$HOME/proton/bin:$PATH"
 SECONDS=0
-ZIPNAME="QuicksilveR-ginkgo-$(date '+%Y%m%d-%H%M').zip"
+ZIPNAME="QuicksilveR-los-ginkgo-$(date '+%Y%m%d-%H%M').zip"
 
 if ! [ -d "$HOME/proton" ]; then
 echo "Proton clang not found! Cloning..."
@@ -33,7 +34,8 @@ cd ..
 rm -rf AnyKernel3
 echo -e "\nCompleted in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) !"
 if command -v gdrive &> /dev/null; then
-sshpass -sp $sfpass scp $ZIPNAME whyredfire@frs.sourceforge.net:/home/frs/project/firebuilds/Releases/kernel-ginkgo/quicksilver-v1/
+gdrive upload --share $ZIPNAME
+sshpass -p $sfpass scp $ZIPNAME whyredfire@frs.sourceforge.net:/home/frs/project/firebuilds/Releases/kernel/quicksilver-v1/
 else
 echo "Zip: $ZIPNAME"
 fi
