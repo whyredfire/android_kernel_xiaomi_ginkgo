@@ -1,3 +1,4 @@
+sudo apt install sshpass
 export PATH="$HOME/proton/bin:$PATH"
 SECONDS=0
 ZIPNAME="QuicksilveR-ginkgo-$(date '+%Y%m%d-%H%M').zip"
