@@ -42,6 +42,8 @@
 #include "qg-battery-profile.h"
 #include "qg-defs.h"
 
+u8 set_cycle_flag = 0;
+
 static int qg_debug_mask;
 module_param_named(
 	debug_mask, qg_debug_mask, int, 0600
