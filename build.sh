@@ -10,6 +10,10 @@ exit 1
 fi
 fi
 
+if [[ $1 = "-c" || $1 = "--clean" ]]; then
+rm -rf out
+fi
+
 mkdir -p out
 make O=out ARCH=arm64 vendor/ginkgo-perf_defconfig
 
