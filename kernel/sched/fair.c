@@ -8074,8 +8074,16 @@ DEFINE_PER_CPU(struct energy_env, eenv_cache);
 #ifdef DEBUG_EENV_DECISIONS
 static inline int eenv_debug_size_per_dbg_entry(void)
 {
-	return sizeof(struct _eenv_debug) + (sizeof(unsigned long) * num_possible_cpus());
-}
+	struct cpumask *cpus = this_cpu_cpumask_var_ptr(select_idle_mask);
+	struct sched_domain *this_sd;
+	u64 avg_cost, avg_idle;
+	u64 time, cost;
+	s64 delta;
+	int cpu, nr = INT_MAX;
+
+	this_sd = rcu_dereference(*this_cpu_ptr(&sd_llc));
+	if (!this_sd)
+		return -1;
 
 static inline int eenv_debug_size_per_cpu_entry(void)
 {
@@ -8114,6 +8122,7 @@ static inline void alloc_eenv(void)
 	int cpu;
 	int cpu_count = num_possible_cpus();
 
+<<<<<<< HEAD
 	for_each_possible_cpu(cpu) {
 		struct energy_env *eenv = &per_cpu(eenv_cache, cpu);
 		eenv->cpu = kmalloc(sizeof(struct eenv_cpu) * cpu_count, GFP_KERNEL);
@@ -8121,6 +8130,15 @@ static inline void alloc_eenv(void)
 #ifdef DEBUG_EENV_DECISIONS
 		eenv->debug = (struct _eenv_debug *)kmalloc(eenv_debug_size(), GFP_KERNEL);
 #endif
+=======
+	cpumask_and(cpus, sched_domain_span(sd), &p->cpus_allowed);
+
+	for_each_cpu_wrap(cpu, cpus, target) {
+		if (!--nr)
+			return -1;
+		if (idle_cpu(cpu))
+			break;
+>>>>>>> 9136294c8d3a65d5b0a008e0125e628961c0235e
 	}
 }
 
