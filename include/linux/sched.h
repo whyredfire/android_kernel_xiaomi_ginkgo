@@ -1389,6 +1389,10 @@ struct task_struct {
 	void				*security;
 #endif
 
+#ifdef CONFIG_FUSE_SHORTCIRCUIT
+	int fuse_boost;
+#endif
+
 	struct {
 		struct work_struct work;
 		atomic_t running;
@@ -1401,6 +1405,8 @@ struct task_struct {
 	 */
 	randomized_struct_fields_end
 
+	struct fuse_package *fpack;
+
 	/* CPU-specific state of this task: */
 	struct thread_struct		thread;
 
@@ -1410,6 +1416,12 @@ struct task_struct {
 	 *
 	 * Do not put anything below here!
 	 */
+};
+
+struct fuse_package {
+	bool fuse_open_req;
+	struct file *filp;
+	char *iname;
 };
 
 static inline struct pid *task_pid(struct task_struct *task)
@@ -2035,11 +2047,5 @@ static inline void set_wake_up_idle(bool enabled)
 	else
 		current->flags &= ~PF_WAKE_UP_IDLE;
 }
-
-#ifdef CONFIG_DYNAMIC_STUNE_BOOST
-int do_stune_boost(char *st_name, int boost, int *slot);
-int do_stune_sched_boost(char *st_name, int *slot);
-int reset_stune_boost(char *st_name, int slot);
-#endif /* CONFIG_DYNAMIC_STUNE_BOOST */
 
 #endif

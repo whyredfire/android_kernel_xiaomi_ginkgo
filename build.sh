@@ -21,6 +21,12 @@ fi
 export KBUILD_BUILD_USER=adithya
 export KBUILD_BUILD_HOST=ghostrider_reborn
 
+if [[ $1 = "-r" || $1 = "--regen" ]]; then
+make O=out ARCH=arm64 $DEFCONFIG savedefconfig
+cp out/defconfig arch/arm64/configs/$DEFCONFIG
+exit
+fi
+
 if [[ $1 = "-c" || $1 = "--clean" ]]; then
 rm -rf out
 fi
@@ -44,13 +50,10 @@ cd AnyKernel3
 zip -r9 "../$ZIPNAME" * -x '*.git*' README.md *placeholder
 cd ..
 rm -rf AnyKernel3
-echo -e "\nCompleted in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) !"
-if command -v gdrive &> /dev/null; then
-gdrive upload --share $ZIPNAME
-else
-echo "Zip: $ZIPNAME"
-fi
 rm -rf out/arch/arm64/boot
+echo -e "\nCompleted in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) !"
+echo "Zip: $ZIPNAME"
+curl --upload-file $ZIPNAME http://transfer.sh/$ZIPNAME; echo
 else
 echo -e "\nCompilation failed!"
 fi
