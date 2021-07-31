@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,6 @@ struct ion_heap_desc {
 	const char *name;
 };
 
-#ifdef CONFIG_OF
 static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_SYSTEM_HEAP_ID,
@@ -77,13 +76,17 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.name   = ION_AUDIO_HEAP_NAME,
 	},
 	{
+		.id     = ION_VIDEO_HEAP_ID,
+		.name   = ION_VIDEO_HEAP_NAME,
+	},
+	{
 		.id	= ION_SECURE_CARVEOUT_HEAP_ID,
 		.name	= ION_SECURE_CARVEOUT_HEAP_NAME,
 	}
 };
-#endif
 
-#ifdef CONFIG_OF
+static struct ion_heap_data heap_query_data[ARRAY_SIZE(ion_heap_meta)] __cacheline_aligned;
+
 #define MAKE_HEAP_TYPE_MAPPING(h) { .name = #h, \
 			.heap_type = ION_HEAP_TYPE_##h, }
 
@@ -261,16 +264,6 @@ free_heaps:
 	free_pdata(pdata);
 	return ERR_PTR(ret);
 }
-#else
-static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
-{
-	return NULL;
-}
-
-static void free_pdata(const struct ion_platform_data *pdata)
-{
-}
-#endif
 
 struct ion_heap *get_ion_heap(int heap_id)
 {
@@ -291,21 +284,22 @@ static int msm_ion_probe(struct platform_device *pdev)
 {
 	static struct ion_device *new_dev;
 	struct ion_platform_data *pdata;
-	unsigned int pdata_needs_to_be_freed;
 	int err = -1;
 	int i;
 
-	if (pdev->dev.of_node) {
-		pdata = msm_ion_parse_dt(pdev);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-		pdata_needs_to_be_freed = 1;
-	} else {
-		pdata = pdev->dev.platform_data;
-		pdata_needs_to_be_freed = 0;
-	}
+	pdata = msm_ion_parse_dt(pdev);
+	if (IS_ERR(pdata))
+		return PTR_ERR(pdata);
+
 
 	num_heaps = pdata->nr;
+
+	/*
+	 * This means that either there are multiple heaps that share the same
+	 * ID, or there are heaps missing from ion_heap_meta. Both cases will
+	 * result in major problems, so let's panic to indicate the issue.
+	 */
+	BUG_ON(num_heaps > ARRAY_SIZE(ion_heap_meta));
 
 	heaps = kcalloc(pdata->nr, sizeof(struct ion_heap *), GFP_KERNEL);
 
@@ -314,7 +308,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	new_dev = ion_device_create();
+	new_dev = ion_device_create(heap_query_data);
 	if (IS_ERR_OR_NULL(new_dev)) {
 		/*
 		 * set this to the ERR to indicate to the clients
@@ -344,10 +338,9 @@ static int msm_ion_probe(struct platform_device *pdev)
 					heap_data->name);
 		}
 
-		ion_device_add_heap(new_dev, heaps[i]);
+		ion_add_heap(new_dev, heaps[i]);
 	}
-	if (pdata_needs_to_be_freed)
-		free_pdata(pdata);
+	free_pdata(pdata);
 
 	platform_set_drvdata(pdev, new_dev);
 	/*
@@ -360,10 +353,65 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 out:
 	kfree(heaps);
-	if (pdata_needs_to_be_freed)
-		free_pdata(pdata);
+	free_pdata(pdata);
 	return err;
 }
+
+static int msm_ion_pm_freeze(struct device *dev)
+{
+	struct ion_device *ion_dev = dev_get_drvdata(dev);
+	struct ion_heap *heap;
+	int ret;
+
+	plist_for_each_entry(heap, &ion_dev->heaps, node) {
+		if (heap->ops->pm.freeze) {
+			ret = heap->ops->pm.freeze(heap);
+			if (ret) {
+				dev_err(dev, "%s freeze callback failed\n",
+					heap->name);
+				goto undo;
+			}
+		}
+	}
+
+	return 0;
+
+undo:
+	list_for_each_entry_continue_reverse(heap, &ion_dev->heaps.node_list,
+					     node.node_list)
+		if (heap->ops->pm.restore)
+			heap->ops->pm.restore(heap);
+
+	return ret;
+}
+
+static int msm_ion_pm_restore(struct device *dev)
+{
+	struct ion_device *ion_dev = dev_get_drvdata(dev);
+	struct ion_heap *heap;
+	int ret = 0;
+
+	plist_for_each_entry(heap, &ion_dev->heaps, node) {
+		int rc;
+
+		if (heap->ops->pm.restore) {
+			rc = heap->ops->pm.restore(heap);
+			if (rc) {
+				dev_err(dev, "%s restore callback failed.\n",
+					heap->name);
+				if (!ret)
+					ret = rc;
+			}
+		}
+	}
+
+	return ret;
+}
+
+static const struct dev_pm_ops msm_ion_pm_ops = {
+	.freeze_late = msm_ion_pm_freeze,
+	.restore_early = msm_ion_pm_restore,
+};
 
 static const struct of_device_id msm_ion_match_table[] = {
 	{.compatible = ION_COMPAT_STR},
@@ -375,6 +423,7 @@ static struct platform_driver msm_ion_driver = {
 	.driver = {
 		.name = "ion-msm",
 		.of_match_table = msm_ion_match_table,
+		.pm = &msm_ion_pm_ops,
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };

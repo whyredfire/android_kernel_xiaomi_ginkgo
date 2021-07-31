@@ -1433,6 +1433,7 @@ void sched_migrate_to_cpumask_end(const struct cpumask *old_mask,
 		struct rq *rq = this_rq();
 
 		raw_spin_lock(&rq->lock);
+		update_rq_clock(rq);
 		do_set_cpus_allowed(p, old_mask);
 		raw_spin_unlock(&rq->lock);
 	}
@@ -4342,6 +4343,8 @@ static void __setscheduler_params(struct task_struct *p,
 
 	if (policy == SETPARAM_POLICY)
 		policy = p->policy;
+	else
+		policy &= ~SCHED_RESET_ON_FORK;
 
 	/* Replace SCHED_FIFO with SCHED_RR to reduce latency */
 	p->policy = policy == SCHED_FIFO ? SCHED_RR : policy;

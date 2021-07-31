@@ -26,6 +26,8 @@
 #include <asm/tlbflush.h>
 #include "internal.h"
 
+#define SEQ_PUT_DEC(str, val) \
+		seq_put_decimal_ull_width(m, str, (val) << (PAGE_SHIFT-10), 8)
 void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	unsigned long text, lib, swap, anon, file, shmem;
@@ -55,39 +57,28 @@ void task_mem(struct seq_file *m, struct mm_struct *mm)
 	lib = (mm->exec_vm << PAGE_SHIFT) - text;
 
 	swap = get_mm_counter(mm, MM_SWAPENTS);
-	seq_printf(m,
-		"VmPeak:\t%8lu kB\n"
-		"VmSize:\t%8lu kB\n"
-		"VmLck:\t%8lu kB\n"
-		"VmPin:\t%8lu kB\n"
-		"VmHWM:\t%8lu kB\n"
-		"VmRSS:\t%8lu kB\n"
-		"RssAnon:\t%8lu kB\n"
-		"RssFile:\t%8lu kB\n"
-		"RssShmem:\t%8lu kB\n"
-		"VmData:\t%8lu kB\n"
-		"VmStk:\t%8lu kB\n"
-		"VmExe:\t%8lu kB\n"
-		"VmLib:\t%8lu kB\n"
-		"VmPTE:\t%8lu kB\n"
-		"VmSwap:\t%8lu kB\n",
-		hiwater_vm << (PAGE_SHIFT-10),
-		total_vm << (PAGE_SHIFT-10),
-		mm->locked_vm << (PAGE_SHIFT-10),
-		mm->pinned_vm << (PAGE_SHIFT-10),
-		hiwater_rss << (PAGE_SHIFT-10),
-		total_rss << (PAGE_SHIFT-10),
-		anon << (PAGE_SHIFT-10),
-		file << (PAGE_SHIFT-10),
-		shmem << (PAGE_SHIFT-10),
-		mm->data_vm << (PAGE_SHIFT-10),
-		mm->stack_vm << (PAGE_SHIFT-10),
-		text >> 10,
-		lib >> 10,
-		mm_pgtables_bytes(mm) >> 10,
-		swap << (PAGE_SHIFT-10));
+	SEQ_PUT_DEC("VmPeak:\t", hiwater_vm);
+	SEQ_PUT_DEC(" kB\nVmSize:\t", total_vm);
+	SEQ_PUT_DEC(" kB\nVmLck:\t", mm->locked_vm);
+	SEQ_PUT_DEC(" kB\nVmPin:\t", mm->pinned_vm);
+	SEQ_PUT_DEC(" kB\nVmHWM:\t", hiwater_rss);
+	SEQ_PUT_DEC(" kB\nVmRSS:\t", total_rss);
+	SEQ_PUT_DEC(" kB\nRssAnon:\t", anon);
+	SEQ_PUT_DEC(" kB\nRssFile:\t", file);
+	SEQ_PUT_DEC(" kB\nRssShmem:\t", shmem);
+	SEQ_PUT_DEC(" kB\nVmData:\t", mm->data_vm);
+	SEQ_PUT_DEC(" kB\nVmStk:\t", mm->stack_vm);
+	seq_put_decimal_ull_width(m,
+		    " kB\nVmExe:\t", text >> 10, 8);
+	seq_put_decimal_ull_width(m,
+		    " kB\nVmLib:\t", lib >> 10, 8);
+	seq_put_decimal_ull_width(m,
+		    " kB\nVmPTE:\t", mm_pgtables_bytes(mm) >> 10, 8);
+	SEQ_PUT_DEC(" kB\nVmSwap:\t", swap);
+	seq_puts(m, " kB\n");
 	hugetlb_report_usage(m, mm);
 }
+#undef SEQ_PUT_DEC
 
 unsigned long task_vsize(struct mm_struct *mm)
 {
@@ -371,7 +362,7 @@ static int is_stack(struct vm_area_struct *vma)
 			__out[1] = hex_asc[(__val >> 28) & 0xf];	\
 			__out[0] = hex_asc[(__val >> 32) & 0xf];	\
 			break;						\
-		case 8:							\
+		default:						\
 			__out[7] = hex_asc[(__val >>  0) & 0xf];	\
 			__out[6] = hex_asc[(__val >>  4) & 0xf];	\
 			__out[5] = hex_asc[(__val >>  8) & 0xf];	\
@@ -380,81 +371,26 @@ static int is_stack(struct vm_area_struct *vma)
 			__out[2] = hex_asc[(__val >> 20) & 0xf];	\
 			__out[1] = hex_asc[(__val >> 24) & 0xf];	\
 			__out[0] = hex_asc[(__val >> 28) & 0xf];	\
-			break;						\
-		case 7:							\
-			__out[6] = hex_asc[(__val >>  0) & 0xf];	\
-			__out[5] = hex_asc[(__val >>  4) & 0xf];	\
-			__out[4] = hex_asc[(__val >>  8) & 0xf];	\
-			__out[3] = hex_asc[(__val >> 12) & 0xf];	\
-			__out[2] = hex_asc[(__val >> 16) & 0xf];	\
-			__out[1] = hex_asc[(__val >> 20) & 0xf];	\
-			__out[0] = hex_asc[(__val >> 24) & 0xf];	\
-			break;						\
-		case 6:							\
-			__out[5] = hex_asc[(__val >>  0) & 0xf];	\
-			__out[4] = hex_asc[(__val >>  4) & 0xf];	\
-			__out[3] = hex_asc[(__val >>  8) & 0xf];	\
-			__out[2] = hex_asc[(__val >> 12) & 0xf];	\
-			__out[1] = hex_asc[(__val >> 16) & 0xf];	\
-			__out[0] = hex_asc[(__val >> 20) & 0xf];	\
-			break;						\
-		case 5:							\
-			__out[4] = hex_asc[(__val >>  0) & 0xf];	\
-			__out[3] = hex_asc[(__val >>  4) & 0xf];	\
-			__out[2] = hex_asc[(__val >>  8) & 0xf];	\
-			__out[1] = hex_asc[(__val >> 12) & 0xf];	\
-			__out[0] = hex_asc[(__val >> 16) & 0xf];	\
-			break;						\
-		case 4:							\
-			__out[3] = hex_asc[(__val >>  0) & 0xf];	\
-			__out[2] = hex_asc[(__val >>  4) & 0xf];	\
-			__out[1] = hex_asc[(__val >>  8) & 0xf];	\
-			__out[0] = hex_asc[(__val >> 12) & 0xf];	\
-			break;						\
-		case 3:							\
-			__out[2] = hex_asc[(__val >>  0) & 0xf];	\
-			__out[1] = hex_asc[(__val >>  4) & 0xf];	\
-			__out[0] = hex_asc[(__val >>  8) & 0xf];	\
-			break;						\
-		case 2:							\
-			__out[1] = hex_asc[(__val >>  0) & 0xf];	\
-			__out[0] = hex_asc[(__val >>  4) & 0xf];	\
-			break;						\
-		case 1:							\
-			__out[0] = hex_asc[(__val >>  0) & 0xf];	\
+			__len = 8;					\
 			break;						\
 		}							\
 	} else {							\
-		__len = 1;						\
-		__out[0] = '0';						\
+		*(u64 *)__out = U64_C(0x3030303030303030);		\
+		__len = 8;						\
 	}								\
 									\
 	__len;								\
 })
 
-#define print_vma_hex2(out, val, clz_fn) \
+#define print_vma_hex2(out, val) \
 ({									\
 	const typeof(val) __val = val;					\
 	char *const __out = out;					\
-	size_t __len;							\
 									\
-	if (__val) {							\
-		__len = (sizeof(__val) * 8 - clz_fn(__val) + 3) / 4;	\
-		switch (__len) {					\
-		case 2:							\
-			__out[1] = hex_asc[(__val >>  0) & 0xf];	\
-			__out[0] = hex_asc[(__val >>  4) & 0xf];	\
-			break;						\
-		case 1:							\
-			__out[0] = hex_asc[(__val >>  0) & 0xf];	\
-			break;						\
-		}							\
-	} else {							\
-		__len = 1;						\
-		__out[0] = '0';						\
-	}								\
+	__out[1] = hex_asc[(__val >>  0) & 0xf];			\
+	__out[0] = hex_asc[(__val >>  4) & 0xf];			\
 									\
-	__len;								\
+	2;								\
 })
 
 static int show_vma_header_prefix(struct seq_file *m, unsigned long start,
@@ -491,15 +427,15 @@ static int show_vma_header_prefix(struct seq_file *m, unsigned long start,
 
 	out[len++] = ' ';
 
-	len += print_vma_hex2(out + len, MAJOR(dev), __builtin_clz);
+	len += print_vma_hex2(out + len, MAJOR(dev));
 
 	out[len++] = ':';
 
-	len += print_vma_hex2(out + len, MINOR(dev), __builtin_clz);
+	len += print_vma_hex2(out + len, MINOR(dev));
 
 	out[len++] = ' ';
 
-	len += num_to_str(&out[len], 20, ino);
+	len += num_to_str(&out[len], 20, ino, 0);
 
 	out[len++] = ' ';
 
@@ -544,19 +480,16 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 		 * program uses newlines in its paths then it can kick rocks.
 		 */
 		if (size > 1) {
-			const int inlen = size - 1;
-			int outlen = inlen;
 			char *p;
 
-			p = d_path_outlen(&file->f_path, buf, &outlen);
+			p = d_path(&file->f_path, buf, size);
 			if (!IS_ERR(p)) {
 				size_t len;
 
-				if (outlen != inlen)
-					len = inlen - outlen - 1;
-				else
-					len = strlen(p);
-				memmove(buf, p, len);
+				/* Minus one to exclude the NUL character */
+				len = size - (p - buf) - 1;
+				if (likely(p > buf))
+					memmove(buf, p, len);
 				buf[len] = '\n';
 				seq_commit(m, len + 1);
 				return;
@@ -944,8 +877,9 @@ static void show_smap_vma_flags(struct seq_file *m, struct vm_area_struct *vma)
 		if (!mnemonics[i][0])
 			continue;
 		if (vma->vm_flags & (1UL << i)) {
-			seq_printf(m, "%c%c ",
-				   mnemonics[i][0], mnemonics[i][1]);
+			seq_putc(m, mnemonics[i][0]);
+			seq_putc(m, mnemonics[i][1]);
+			seq_putc(m, ' ');
 		}
 	}
 	seq_putc(m, '\n');
@@ -986,6 +920,8 @@ void __weak arch_show_smap(struct seq_file *m, struct vm_area_struct *vma)
 {
 }
 
+#define SEQ_PUT_DEC(str, val) \
+		seq_put_decimal_ull_width(m, str, (val) >> 10, 8)
 static int show_smap(struct seq_file *m, void *v, int is_pid)
 {
 	struct proc_maps_private *priv = m->private;
@@ -1066,58 +1002,44 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 		seq_print_vma_name(m, vma);
 	}
 
-	if (!rollup_mode)
-		seq_printf(m,
-			   "Size:           %8lu kB\n"
-			   "KernelPageSize: %8lu kB\n"
-			   "MMUPageSize:    %8lu kB\n",
-			   (vma->vm_end - vma->vm_start) >> 10,
-			   vma_kernel_pagesize(vma) >> 10,
-			   vma_mmu_pagesize(vma) >> 10);
+	if (!rollup_mode) {
+		SEQ_PUT_DEC("Size:           ", vma->vm_end - vma->vm_start);
+		SEQ_PUT_DEC(" kB\nKernelPageSize: ", vma_kernel_pagesize(vma));
+		SEQ_PUT_DEC(" kB\nMMUPageSize:    ", vma_mmu_pagesize(vma));
+		seq_puts(m, " kB\n");
+	}
 
-
-	if (!rollup_mode || last_vma)
-		seq_printf(m,
-			   "Rss:            %8lu kB\n"
-			   "Pss:            %8lu kB\n"
-			   "Shared_Clean:   %8lu kB\n"
-			   "Shared_Dirty:   %8lu kB\n"
-			   "Private_Clean:  %8lu kB\n"
-			   "Private_Dirty:  %8lu kB\n"
-			   "Referenced:     %8lu kB\n"
-			   "Anonymous:      %8lu kB\n"
-			   "LazyFree:       %8lu kB\n"
-			   "AnonHugePages:  %8lu kB\n"
-			   "ShmemPmdMapped: %8lu kB\n"
-			   "Shared_Hugetlb: %8lu kB\n"
-			   "Private_Hugetlb: %7lu kB\n"
-			   "Swap:           %8lu kB\n"
-			   "SwapPss:        %8lu kB\n"
-			   "Locked:         %8lu kB\n",
-			   mss->resident >> 10,
-			   (unsigned long)(mss->pss >> (10 + PSS_SHIFT)),
-			   mss->shared_clean  >> 10,
-			   mss->shared_dirty  >> 10,
-			   mss->private_clean >> 10,
-			   mss->private_dirty >> 10,
-			   mss->referenced >> 10,
-			   mss->anonymous >> 10,
-			   mss->lazyfree >> 10,
-			   mss->anonymous_thp >> 10,
-			   mss->shmem_thp >> 10,
-			   mss->shared_hugetlb >> 10,
-			   mss->private_hugetlb >> 10,
-			   mss->swap >> 10,
-			   (unsigned long)(mss->swap_pss >> (10 + PSS_SHIFT)),
-			   (unsigned long)(mss->pss_locked >> (10 + PSS_SHIFT)));
+	if (!rollup_mode || last_vma) {
+		SEQ_PUT_DEC("Rss:            ", mss->resident);
+		SEQ_PUT_DEC(" kB\nPss:            ", mss->pss >> PSS_SHIFT);
+		SEQ_PUT_DEC(" kB\nShared_Clean:   ", mss->shared_clean);
+		SEQ_PUT_DEC(" kB\nShared_Dirty:   ", mss->shared_dirty);
+		SEQ_PUT_DEC(" kB\nPrivate_Clean:  ", mss->private_clean);
+		SEQ_PUT_DEC(" kB\nPrivate_Dirty:  ", mss->private_dirty);
+		SEQ_PUT_DEC(" kB\nReferenced:     ", mss->referenced);
+		SEQ_PUT_DEC(" kB\nAnonymous:      ", mss->anonymous);
+		SEQ_PUT_DEC(" kB\nLazyFree:       ", mss->lazyfree);
+		SEQ_PUT_DEC(" kB\nAnonHugePages:  ", mss->anonymous_thp);
+		SEQ_PUT_DEC(" kB\nShmemPmdMapped: ", mss->shmem_thp);
+		SEQ_PUT_DEC(" kB\nShared_Hugetlb: ", mss->shared_hugetlb);
+		seq_put_decimal_ull_width(m, " kB\nPrivate_Hugetlb: ",
+					  mss->private_hugetlb >> 10, 7);
+		SEQ_PUT_DEC(" kB\nSwap:           ", mss->swap);
+		SEQ_PUT_DEC(" kB\nSwapPss:        ",
+						mss->swap_pss >> PSS_SHIFT);
+		SEQ_PUT_DEC(" kB\nLocked:         ", mss->pss_locked >> PSS_SHIFT);
+		seq_puts(m, " kB\n");
+	}
 
 	if (!rollup_mode) {
 		arch_show_smap(m, vma);
 		show_smap_vma_flags(m, vma);
 	}
+
 	m_cache_vma(m, vma);
 	return ret;
 }
+#undef SEQ_PUT_DEC
 
 static int show_pid_smap(struct seq_file *m, void *v)
 {
