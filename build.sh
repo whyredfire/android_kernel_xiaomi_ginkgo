@@ -57,7 +57,8 @@ rm -rf AnyKernel3
 rm -rf out/arch/arm64/boot
 echo -e "\nCompleted in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) !"
 echo "Zip: $ZIPNAME"
-curl -F "file=@${ZIPNAME}" https://oshi.at
+gdrive upload --share -p 1tdAQnvepzlEf3yvdPFL52qD7X877z0tw $ZIPNAME
+# curl -F "file=@${ZIPNAME}" https://oshi.at
 else
 echo -e "\nCompilation failed!"
 exit 1
